@@ -1,0 +1,638 @@
+import customtkinter as ctk
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from sympy import symbols, sympify, lambdify
+from matplotlib.animation import FuncAnimation
+import threading
+import time
+from PIL import Image, ImageTk
+
+# default variables
+condition = False
+graph_type = "Surface"
+colour_scheme = "coolwarm"
+plt.style.use("fivethirtyeight")
+graph_count = 0
+error_occurred = False
+graph_toolbar_exists = False
+img = Image.open("q_mark.png")
+info_window = False
+point_density = 5
+settings_shown = False
+
+# working with root as base
+root = ctk.CTk()
+width = int(root.winfo_screenwidth() * 1)
+height = int(root.winfo_screenheight() * 1)
+root.geometry("{0}x{1}+0+0".format(width, height))
+# root.attributes("-fullscreen", True)
+root.title("3D Surface Plotting")
+root.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
+root.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+root.grid_propagate(False)
+print("root.main deployed")
+
+
+# frames on root.main
+
+# intro frame that shows loading, copyright and title
+frame_intro = ctk.CTkFrame(root, bg_color="transparent", fg_color="transparent", height=1000, width=1900)
+frame_intro.grid(row=0, column=0, rowspan=10, columnspan=5)
+frame_intro.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
+frame_intro.grid_rowconfigure((0, 9), weight=0)
+frame_intro.grid_columnconfigure((0, 1, 2), weight=1)
+frame_intro.grid_propagate(False)
+
+intro_label = ctk.CTkLabel(frame_intro, text="3D GRAPH PLOTTING", text_color="black", font=("Arial", 30, "bold"),
+                           fg_color="#F0F0F0", height=50, width=600, corner_radius=10)
+intro_label.grid(row=3, column=0, rowspan=1, columnspan=3, padx=10)
+intro_label = ctk.CTkLabel(frame_intro, text="An Amateur Project!", text_color="black", font=("Arial", 20, "bold"),
+                           fg_color="#F0F0F0", height=50, width=600, corner_radius=10)
+intro_label.grid(row=3, column=0, rowspan=1, columnspan=3, padx=10, sticky="s")
+
+intro_progress = ctk.CTkProgressBar(frame_intro, mode="indeterminate", height=10, width=300, indeterminate_speed=1)
+intro_progress.grid(row=4, column=1, rowspan=1, columnspan=1, padx=0, pady=0)
+intro_progress.start()
+
+copyright_label = ctk.CTkLabel(frame_intro, text="\u00A9 2024 PICT, Pune. All Rights Reserved. Educational use permitted.",
+                               text_color="black", font=("Arial", 20, "bold"),
+                               fg_color="#F0F0F0", corner_radius=2)
+copyright_label.grid(row=9, column=0, rowspan=1, columnspan=3, padx=3, pady=10, sticky="nsew")
+
+
+# left most frame , from top to bottom
+frame_left = ctk.CTkFrame(root, bg_color="transparent", fg_color="transparent", height=1000, width=400)
+frame_left.grid(row=0, column=0, rowspan=10, columnspan=1)
+frame_left.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
+frame_left.grid_columnconfigure((0, 1, 2), weight=1)
+frame_left.grid_propagate(False)
+frame_left.grid_remove()
+
+# right most frame that houses the graph, bottom-line and toolbar, from top to bottom
+frame_right = ctk.CTkFrame(root, bg_color="transparent", fg_color="#F0F0F0", height=1000, width=1500, corner_radius=10)
+frame_right.grid(row=0, column=1, rowspan=10, columnspan=4, padx=5, pady=5)
+frame_right.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
+frame_right.grid_rowconfigure((0, 9), weight=0)
+frame_right.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
+frame_right.grid_propagate(False)
+frame_right.grid_remove()
+
+# frame that shows the roots on "show roots = 1"
+frame_points = ctk.CTkTextbox(root, bg_color="transparent", fg_color="transparent", height=900, width=400,
+                              corner_radius=10, font=("Arial", 20, "bold"), border_spacing=6, border_width=2, border_color="#F0F0F0")
+frame_points.grid(row=0, column=0, pady=10, rowspan=9)
+frame_points.grid_remove()
+
+# frame that shows the settings when "setting" = 1
+frame_settings = ctk.CTkFrame(root, bg_color="transparent", fg_color="transparent", height=400, width=400, border_width=2, border_color="#F0F0F0")
+frame_settings.grid(row=5, column=0, rowspan=4, columnspan=1, pady=10)
+frame_settings.grid_rowconfigure((0, 1, 2, 3, 4), weight=1)
+frame_settings.grid_columnconfigure((0, 1, 2, 3), weight=1)
+frame_settings.grid_propagate(False)
+frame_settings.grid_remove()
+
+
+# the main function that controls the flow of the program and houses the prompts
+def get_inputs(colour_scheme="magma"):
+    global exp, x_r_f, x_r_t, y_r_f, y_r_t, condition, range_error_label, initial_label_r, condition_rotate,\
+           graph_toolbar_exists, error_occurred, canvas_widget, graph_count, density_points_slider
+    exp = exp_box.get()
+    # tries to get the inputs
+    try:
+        x_r_f = int(x_range_box_f.get())
+        x_r_t = int(x_range_box_t.get())
+        y_r_f = int(y_range_box_f.get())
+        y_r_t = int(y_range_box_t.get())
+        range_error_label.configure(text="")
+        print("range inputs taken")
+    except ValueError:
+        x_r_f = -10
+        x_r_t = 10
+        y_r_f = -10
+        y_r_t = 10
+        range_error_label.configure(text="Invalid RANGE: (default= x>[-10,10] y>[-10,10])")
+        print("invalid range inputs")
+    try:
+        res = float(res_graph.get())
+        res_error_label.configure(text="")
+        print("resolution input taken")
+    except ValueError:
+        res = 0.5
+        res_error_label.configure(text="Invalid RESOLUTION: (default= 0.5)")
+        print("invalid resolution input")
+
+    try:
+        # tries to get the expression and evaluates it for errors
+        if exp == "" or "=" in exp:
+            exp_error_label.configure(text="Invalid EXPRESSION! Try Again.")
+            error_occurred = True
+            print("invalid expression")
+        # proceeds if exp is not empty
+        else:
+            # prompts the whole graph processing flow that then returns the generated graph
+            # and nothing if error detected
+            graph = display_3d_graph(exp, x_r_f, x_r_t, y_r_f, y_r_t, res, colour_scheme)
+
+            # refreshes the toolbar for every iteration of the graphs , when every new graph is created
+            if graph_toolbar_exists:
+                canvas_widget.destroy()
+                graph_toolbar_exists = False
+
+            # displays the error image if "error_occurred" is True
+            if error_occurred:
+                image = ImageTk.PhotoImage(img)
+                label_error = ctk.CTkLabel(master=frame_right, image=image, text="", bg_color="transparent", fg_color="transparent")
+                label_error.grid(row=4, column=4, rowspan=2, columnspan=2)
+                error_text = ctk.CTkLabel(master=frame_right, text="Unable to identify given equation!", text_color="black", font=("Arial", 18, "bold"), bg_color="transparent", fg_color="transparent")
+                error_text.grid(row=6, column=4, rowspan=1, columnspan=2, sticky="n")
+
+                error_occurred = False
+
+            # if no error is found and the graph is returned
+            else:
+                canvas = FigureCanvasTkAgg(graph, master=frame_right)
+                graph_count += 1
+                print(f"graph generated >>> count = {graph_count}")
+
+                # the main "canvas_widget" overlaps the frame_right showing the graph
+                canvas_widget = canvas.get_tk_widget()
+                canvas_widget.grid(row=0, column=0, rowspan=9, columnspan=10, padx=1, pady=1, sticky="nsew")
+
+                toolbar_frame = ctk.CTkFrame(frame_right)
+                toolbar_frame.grid(row=0, column=0, columnspan=10, rowspan=1, padx=1, pady=1, sticky="new")
+
+                toolbar = NavigationToolbar2Tk(canvas, toolbar_frame)
+                toolbar.update()
+
+                graph_toolbar_exists = True
+
+            # once the graph is created, the specific button/elements are updated accordingly
+            type_graph.configure(state="enabled")
+            colour_of_graph.configure(state="enabled")
+            save_graph.configure(state="enabled", text="Save")
+            exp_error_label.configure(text="")
+            show_points.configure(state="enabled")
+            density_points_slider.configure(state="normal")
+            print("elements updated")
+
+            # def on_click(event):
+            #     global condition_rotate
+            #     if event.button == 1:
+            #         condition_rotate = False
+            #
+            # fig.canvas.mpl_connect('button_press_event', on_click)
+            #
+            # for i in range(180):
+            #     if condition_rotate:
+            #         ax.view_init(elev=30, azim=50 + i*2)
+            #         canvas.draw()
+            #         root.update()
+            #         time.sleep(0.05)
+    except NameError:
+        print("Invalid graph returned")
+
+
+# includes all the overlapping elements in any of the base frames and some of the other parameters
+def left_elements():
+    global exp_box, x_range_box_f, x_range_box_t, y_range_box_f, y_range_box_t, res_graph, no_of_graphs,\
+        type_graph, range_error_label, res_error_label, exp_error_label, colour_of_graph, save_graph, \
+        saving_progress_bar, initial_label_r, show_points, label_points, density_points_slider, density_point_label
+
+    frame_left_top = ctk.CTkFrame(frame_left,  bg_color="transparent", fg_color="transparent", height=100, width=400)
+    frame_left_top.grid(row=0, column=0, rowspan=1, columnspan=3, padx=10, pady=0)
+    frame_left_top.grid_rowconfigure((0, 1, 2), weight=1)
+    frame_left_top.grid_columnconfigure((0, 1, 2), weight=1)
+
+    range_error_label = ctk.CTkLabel(frame_left_top, text="INPUTS", font=("Arial", 14, "bold"), bg_color="transparent", height=33, width=400)
+    range_error_label.grid(row=1, column=0, rowspan=1, columnspan=3, padx=10, pady=0)
+    res_error_label = ctk.CTkLabel(frame_left_top, text="", font=("Arial", 14, "bold"), bg_color="transparent", height=33, width=400)
+    res_error_label.grid(row=2, column=0, rowspan=1, columnspan=3, padx=10, pady=0)
+    exp_error_label = ctk.CTkLabel(frame_left_top, text="", font=("Arial", 14, "bold"), bg_color="transparent", height=33, width=400)
+    exp_error_label.grid(row=0, column=0, rowspan=1, columnspan=3, padx=10, pady=0)
+
+    exp_box = ctk.CTkEntry(frame_left, placeholder_text="Mathematical expression in terms of x and y: ", font=("Arial", 14, "bold"), height=70, width=400)
+    exp_box.grid(row=1, column=0, rowspan=1, columnspan=3, padx=10, pady=0)
+
+    x_range_label = ctk.CTkLabel(frame_left, text="x range :- ", font=("Arial", 14, "bold"), bg_color="transparent", height=70, width=80)
+    x_range_label.grid(row=2, column=0, rowspan=1, columnspan=1, padx=10, pady=0)
+
+    x_range_box_f = ctk.CTkEntry(frame_left, placeholder_text="from : ", font=("Arial", 14, "bold"), height=50, width=140)
+    x_range_box_f.grid(row=2, column=1, rowspan=1, columnspan=1, padx=0, pady=0)
+
+    x_range_box_t = ctk.CTkEntry(frame_left, placeholder_text="to : ", font=("Arial", 14, "bold"), height=50, width=140)
+    x_range_box_t.grid(row=2, column=2, rowspan=1, columnspan=1, padx=10, pady=0)
+
+    y_range_label = ctk.CTkLabel(frame_left, text="y range :- ", font=("Arial", 14, "bold"), bg_color="transparent", height=70, width=80)
+    y_range_label.grid(row=3, column=0, rowspan=1, columnspan=1, padx=10, pady=0)
+
+    y_range_box_f = ctk.CTkEntry(frame_left, placeholder_text="from : ", font=("Arial", 14, "bold"), height=50, width=140)
+    y_range_box_f.grid(row=3, column=1, rowspan=1, columnspan=1, padx=0, pady=0)
+
+    y_range_box_t = ctk.CTkEntry(frame_left, placeholder_text="to : ", font=("Arial", 14, "bold"), height=50, width=140)
+    y_range_box_t.grid(row=3, column=2, rowspan=1, columnspan=1, padx=10, pady=0)
+
+    gen_graph = ctk.CTkButton(frame_left, text="Generate", font=("Arial", 14, "bold"), bg_color="transparent", height=50, width=100, command=get_inputs)
+    gen_graph.grid(row=7, column=2, rowspan=1, columnspan=1, padx=0, pady=0)
+
+    save_graph = ctk.CTkButton(frame_left, text="Save", font=("Arial", 14, "bold"), bg_color="transparent", height=50, width=100,
+                               command=save_g_threading)
+    save_graph.grid(row=7, column=1, rowspan=1, columnspan=1, padx=0, pady=0)
+    save_graph.configure(state="disabled")
+
+    saving_progress_bar = ctk.CTkProgressBar(frame_left, mode="determinate", height=10, width=240)
+    saving_progress_bar.grid(row=8, column=1, rowspan=1, columnspan=1, padx=0, pady=0)
+    # saving_progress_bar.start()
+    saving_progress_bar.grid_forget()
+
+    res_label = ctk.CTkLabel(frame_left, text="Resolution :- ", font=("Arial", 14, "bold"), bg_color="transparent",
+                                height=50, width=100)
+    res_label.grid(row=4, column=0, rowspan=1, columnspan=1, padx=0, pady=0)
+
+    res_graph = ctk.CTkEntry(frame_left, bg_color="transparent",placeholder_text="(2 - 0.01)", font=("Arial", 14, "bold"), height=50,
+                             width=240)
+    res_graph.grid(row=4, column=1, rowspan=1, columnspan=3, padx=10, pady=0)
+
+    type_label = ctk.CTkLabel(frame_left, text="Type :- ", font=("Arial", 14, "bold"), bg_color="transparent", height=70, width=100)
+    type_label.grid(row=5, column=0, rowspan=1, columnspan=1, padx=10, pady=0)
+
+    type_graph = ctk.CTkOptionMenu(frame_left, bg_color="transparent", command=type_of_graph,
+                                   values=["Surface", "Wireframe", "Contour", "Scatter", "All", "Filled Contour"], font=("Arial", 14, "bold"),
+                                   height=50, width=240)
+    type_graph.grid(row=5, column=1, rowspan=1, columnspan=2, padx=0, pady=0)
+    type_graph.configure(state="disabled")
+
+    colour_label = ctk.CTkLabel(frame_left, text="Colour :- ", font=("Arial", 14, "bold"), bg_color="transparent",
+                                height=50, width=100)
+    colour_label.grid(row=6, column=0, rowspan=1, columnspan=1, padx=0, pady=0)
+
+    colour_of_graph = ctk.CTkOptionMenu(frame_left, bg_color="transparent", command=colour_graph,
+                                        values=['magma', 'inferno', 'plasma', 'viridis', 'twilight', 'turbo', 'Blues', 'Greys', 'afmhot', 'autumn', 'binary', 'bone', 'brg', 'bwr', 'cool', 'coolwarm', 'copper', 'cubehelix', 'flag', 'gist_earth', 'gist_gray', 'gist_heat', 'gist_ncar', 'gist_rainbow', 'nipy_spectral', 'ocean', 'pink', 'prism', 'rainbow', 'seismic', 'spring', 'summer', 'terrain', 'winter', 'Accent', 'Dark2', 'Paired', 'Pastel1', 'Pastel2', 'Set1', 'gist_yerg', 'Grays'],
+                                        font=("Arial", 14, "bold"), height=50, width=240)
+    colour_of_graph.grid(row=6, column=1, rowspan=1, columnspan=2, padx=0, pady=0)
+    colour_of_graph.configure(state="disabled")
+
+    initial_label_r = ctk.CTkLabel(frame_right, text="3D SURFACE GRAPH PLOTTING USING MATPLOTLIB", font=("Arial", 20, "bold"), text_color="#242424")
+    initial_label_r.grid(row=9, column=0, rowspan=1, columnspan=10, padx=5, pady=5, sticky="sew")
+
+    show_points = ctk.CTkSwitch(frame_left, text="Show roots", font=("Arial", 15, "bold"), command=points_show)
+    show_points.grid(row=9, column=2, rowspan=1, columnspan=1,padx=5, pady=5)
+    show_points.configure(state="disabled")
+
+    show_info = ctk.CTkButton(frame_left, text="\u00A9Info", font=("Arial", 10, "bold"), bg_color="transparent",
+                              fg_color="transparent", command=info_show)
+    show_info.grid(row=9, column=0, rowspan=1, columnspan=1, padx=5, pady=5, sticky="w")
+
+    setting = ctk.CTkButton(frame_left, text="Settings", font=("Arial", 10, "bold"), bg_color="transparent",
+                              fg_color="transparent", command=show_settings)
+    setting.grid(row=9, column=1, rowspan=1, columnspan=1, padx=5, pady=5)
+
+    density_points_slider = ctk.CTkSlider(frame_settings, from_=0, to=10, number_of_steps=10, width=300, command=label_points)
+    density_points_slider.grid(row=0, column=1, rowspan=1, columnspan=3, padx=5, pady=5)
+    density_points_slider.configure(state="disabled")
+
+    density_point_label = ctk.CTkLabel(frame_settings, text=str(point_density), width=100)
+    density_point_label.grid(row=0, column=0, rowspan=1, columnspan=1, padx=5, pady=5)
+
+    def show():
+        for _ in range(1000, -1, -1):
+            frame_intro.configure(height=_*0.1)
+        frame_left.grid()
+        frame_right.grid()
+
+    root.after(1000, show)
+
+    print("all elements deployed")
+
+    return (exp_box, x_range_box_f, x_range_box_t, y_range_box_f, y_range_box_t, res_graph, type_graph,
+            range_error_label, res_error_label, exp_error_label, colour_of_graph, save_graph, saving_progress_bar,
+            initial_label_r, show_points, label_points, density_points_slider, density_point_label)
+
+
+# the main function that takes in x, y and the expression and calculates the Z values respectively
+# returns result
+def f(exp, x, y):
+    x_sym, y_sym = symbols('x y')
+    expr = sympify(exp)
+    print(expr)
+    f_num = lambdify((x_sym, y_sym), expr, 'numpy')
+    try:
+        result = f_num(x, y)
+        return result
+    except TypeError:
+        print("UNEXPECTED111")
+
+
+# prepares the graph accordingly to the set "graph_type"
+# appends the data to the "array.txt" file and also to "list_points"
+# has extensive "error-handling" for better performance
+# other smaller things are included
+def display_3d_graph(exp, x_r_f=25, x_r_t=25, y_r_f=25, y_r_t=25, res=0.25, cs="coolwarm"):
+    global fig, surf, X, Y, Z, ax, condition_rotate, error_occurred, list_points, label_points
+    x = np.arange(x_r_f, x_r_t, res)
+    y = np.arange(y_r_f, y_r_t, res)
+    X, Y = np.meshgrid(x, y)
+    Z = f(exp, X, Y)
+    print("Z>>>", Z)
+    try:
+        list_points = []
+
+        for i in range(len(x)):
+            temp_list = []
+            temp_list.append(x[i])
+            temp_list.append(y[i])
+            temp_list.append(Z[0][i])
+
+            list_points.append(temp_list)
+
+        list_points.insert(0, ["Sr", "X", "Y", "Z"])
+        print(list_points)
+
+        with open('array.txt', 'a') as file:
+            file.write(f"{graph_count+1}]  Expression:::  {exp}\n")
+            file.write(f"Resolution:::  {res}\n")
+            file.write(f"X:::  {np.array2string(x)}\n")
+            file.write(f"Y:::  {np.array2string(y)}\n")
+            file.write(f"Z:::  {np.array2string(Z[0])}\n\n")
+    except TypeError:
+        print("Cannot calculate roots.")
+
+    condition_rotate = True
+
+    fig = plt.Figure()
+    try:
+        if graph_type == "Surface":
+            ax = fig.add_subplot(projection='3d')
+            surf = ax.plot_surface(X, Y, Z, cmap=cs)
+
+            # ax.grid(False)
+            # ax.xaxis.set_pane_color((0, 0, 0, 0))
+            # ax.yaxis.set_pane_color((0, 0, 0, 0))
+            # ax.zaxis.set_pane_color((0, 0, 0, 0))
+
+            # fig.colorbar(surf, shrink=0.5, aspect=10)
+    except AttributeError:
+        error_occurred = True
+
+        print("UNEXPECTED222")
+
+    if graph_type == "Contour":
+        try:
+            ax = fig.add_subplot(projection='3d')
+            try:
+                surf = ax.contour3D(X, Y, Z, cmap=cs)
+            except TypeError:
+                print("NIGGa")
+                error_occurred = True
+        except AttributeError:
+            error_occurred = True
+            print("UNEXPECTED222")
+
+    elif graph_type == "Filled Contour":
+        try:
+            ax = fig.add_subplot(projection='3d')
+            surf = ax.contourf(X, Y, Z, cmap=cs)
+        except AttributeError:
+            error_occurred = True
+            print("UNEXPECTED222")
+
+    elif graph_type == "Wireframe":
+        try:
+            ax = fig.add_subplot(projection='3d')
+            surf = ax.plot_wireframe(X, Y, Z, cmap=cs)
+        except AttributeError:
+            error_occurred = True
+            print("UNEXPECTED222")
+
+    elif graph_type == "Scatter":
+        try:
+            ax = fig.add_subplot(projection='3d')
+            surf = ax.scatter(X, Y, Z)
+        except AttributeError:
+            error_occurred = True
+            print("UNEXPECTED222")
+
+    elif graph_type == "All":
+        try:
+            ax1 = fig.add_subplot(2, 2, 1, projection='3d')
+            surf1 = ax1.plot_surface(X, Y, Z, cmap=cs)
+            ax1.set_title('Surface Plot')
+            ax1.set_position([0, 0.5, 0.4, 0.4])
+            ax1.set_xlabel("X axis")
+            ax1.set_ylabel("Y axis")
+            ax1.set_zlabel("Z axis")
+
+            ax2 = fig.add_subplot(2, 2, 2, projection='3d')
+            surf2 = ax2.scatter(X, Y, Z)
+            ax2.set_title('Scatter Plot')
+            ax2.set_position([0.5, 0.5, 0.4, 0.4])
+            ax2.set_xlabel("X ")
+            ax2.set_ylabel("Y ")
+            ax2.set_zlabel("Z ")
+
+            ax3 = fig.add_subplot(2, 2, 3, projection='3d')
+            surf3 = ax3.contour3D(X, Y, Z, cmap=cs)
+            ax3.set_title('Contour Plot')
+            ax3.set_position([0, 0, 0.4, 0.4])
+            ax3.set_xlabel("X ")
+            ax3.set_ylabel("Y ")
+            ax3.set_zlabel("Z ")
+
+            ax4 = fig.add_subplot(2, 2, 4, projection='3d')
+            surf4 = ax4.plot_wireframe(X, Y, Z, cmap=cs)
+            ax4.set_title('Wireframe Plot')
+            ax4.set_position([0.5, 0, 0.4, 0.4])
+            ax4.set_xlabel("X ")
+            ax4.set_ylabel("Y ")
+            ax4.set_zlabel("Z ")
+        except AttributeError:
+            error_occurred = True
+            print("UNEXPECTED222")
+    # ax.set_position([0.1, 0.1, 0.8, 0.8])
+    try:
+        ax.set_position([0, 0, 1, 1])
+        ax.set_xlabel("X axis")
+        ax.set_ylabel("Y axis")
+        ax.set_zlabel("Z axis")
+    except:
+        print("ERRRORRO")
+    # watermark_text = "Your Watermark Here"
+
+    # ax.xaxis.pane.fill = False
+    # ax.yaxis.pane.fill = False
+    # ax.zaxis.pane.fill = False
+
+    label_points()
+
+    return fig
+
+
+# uses threading to prevent freezing of the plot when graph saving is actuated
+def save_g_threading():
+    t1 = threading.Thread(target=save_graph_f)
+    t1.start()
+
+
+# plots the "label_points" that are nothing but "roots" of the "expression" for {x,y}
+# "over" the generated graph according to the set "point-density"
+# provided by the "list_points" list
+def label_points(*args):
+    global point_density, density_point_label
+    try:
+        point_density = round(density_points_slider.get())
+        density_point_label.configure(text=point_density)
+
+    except:
+        print("Failed to get point density")
+        pass
+    try:
+        for point in list_points[1::point_density]:
+            x_coord, y_coord, z_coord = point
+            ax.text(x_coord, y_coord, z_coord, f'•({x_coord:.2f}, {y_coord:.2f}, {z_coord:.2f})', color='black')
+
+        # ax.text(list_points[0][0], list_points[0][1], list_points[0][2],
+        #         f'•({list_points[0][0]:.2f}, {list_points[0][1]:.2f}, {list_points[0][2]:.2f})', color='black')
+        # ax.text(list_points[-1][0], list_points[-1][1], list_points[-1][2],
+        #         f'•({list_points[-1][0]:.2f}, {list_points[-1][1]:.2f}, {list_points[-1][2]:.2f})', color='black')
+
+    except:
+        print("failure to label points on the graph")
+
+
+# the main function that saves the animated graph with the .gif extension
+# also saves the image format with the .png extension
+# should be adjusted for better performance according to the resources available
+def save_graph_f():
+    global surf_s, colour_scheme, saving_progress_bar, save_graph
+    print("saving graph...")
+
+    def f_s(exp, x, y):
+        x_sym, y_sym = symbols('x y')
+        expr = sympify(exp)
+        f_num = lambdify((x_sym, y_sym), expr, 'numpy')
+        result = f_num(x, y)
+
+        return result
+
+    x_s = np.arange(x_r_f, x_r_t, 0.5)
+    y_s = np.arange(y_r_f, y_r_t, 0.5)
+    X_S, Y_S = np.meshgrid(x_s, y_s)
+    Z_S = f_s(exp, X_S, Y_S)
+
+    fig_s = plt.Figure()
+    ax_s = fig_s.add_subplot(projection='3d')
+    surf_s = ax_s.plot_surface(X_S, Y_S, Z_S, cmap=colour_scheme)
+    ax_s.view_init(elev=30, azim=-105)
+    ax.set_xlabel('X')
+    ax.set_zlabel('Z')
+
+    def animate_surface(frame):
+        global surf_s, saving_progress_bar
+        surf_s.remove()
+        ax_s.view_init(elev=30, azim=frame*1.333333)
+        surf_s = ax_s.plot_surface(X_S, Y_S, Z_S, cmap=colour_scheme)
+        saving_progress_bar.grid(row=8, column=1, rowspan=1, columnspan=2, padx=0, pady=0)
+        saving_progress_bar.set(frame*0.003333333)
+        return surf_s
+
+    fig_s.savefig(f"3D {time.strftime('%Y-%m-%d %H:%M:%S')}.png", dpi=300)
+    ax_s.view_init(elev=30, azim=-0)
+    frames = 270
+    animation = FuncAnimation(fig_s, animate_surface, frames=frames, blit=True)
+    animation.save(f"3D {time.strftime('%Y-%m-%d %H:%M:%S')}.gif", "pillow", 10, 200)
+    saving_progress_bar.grid_forget()
+    save_graph.configure(text="Saved !", state="disabled")
+    print("animation finished")
+
+
+
+def type_of_graph(val):
+    global graph_type
+    graph_type = val
+    print("type of graph changed")
+    # print(ax.get_proj().elev, ax.get_proj().azim)
+    get_inputs()
+
+
+def colour_graph(val):
+    global colour_scheme
+    colour_scheme = val
+    print("colour scheme of graph changed")
+    get_inputs(colour_scheme)
+
+
+def condi():
+    global condition
+    condition = True
+    get_inputs()
+
+
+def points_show():
+    if show_points.get():
+        points_str = ""
+        j = 1
+        try:
+            row = "|{:<10} | {:<10} | {:<10} | {:<10}\n\n".format(list_points[0][0], list_points[0][1], list_points[0][2], list_points[0][3])
+            points_str += row
+            for i in list_points[1::]:
+                row = f"{j}]      " + "| {:<10.2f} | {:<10.2f} | {:<10.2f}\n\n".format(float(i[0]), float(i[1]), float(i[2]))
+                points_str += row
+                j += 1
+        except IndexError:
+            points_str = "Cannot find points for this expression!"
+
+        frame_points.insert("0.0", points_str)
+        frame_points.grid()
+        for _ in range(46):
+            frame_points.configure(height=_*20)
+
+    else:
+        for _ in range(45, -1, -1):
+            frame_points.configure(height=_*20)
+        frame_points.delete("0.0", "end")
+        frame_points.grid_remove()
+
+
+def info_show():
+    global info_window
+
+    if info_window:
+        pass
+
+    top_level_window = ctk.CTkToplevel(root)
+    top_level_window.title("Information/Documentation")
+    top_level_window.geometry("1000x1000")
+    top_level_window.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
+    top_level_window.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+    top_level_window.grid_propagate(False)
+
+    info_window = True
+
+    with open("documentation.txt", "r") as documentation_file:
+        docu_str = documentation_file.read()
+
+    info_str = "All the documentation and information regarding the project made is displayed here.\n" + docu_str
+    info_label = ctk.CTkTextbox(top_level_window, font=("Roboto", 16))
+    info_label.grid(row=1, column=0, rowspan=9, columnspan=5, padx=15, pady=15, sticky="new")
+    info_label.insert("0.0", f"{info_str}")
+
+    print("documentation.window deployed")
+
+
+def show_settings():
+    global settings_shown
+
+    if show_points.get():
+        frame_points.configure(height=500)
+        frame_points.grid(row=0, column=0, columnspan=1, rowspan=5)
+    if settings_shown:
+        frame_settings.grid_remove()
+        settings_shown = False
+    else:
+        frame_settings.grid()
+        settings_shown = True
+
+
+left_elements()
+
+root.mainloop()
