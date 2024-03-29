@@ -355,12 +355,14 @@ def display_3d_graph(exp, x_r_f=25, x_r_t=25, y_r_f=25, y_r_t=25, res=0.25, cs="
             file.write(f"Y:::  {np.array2string(y)}\n")
             file.write(f"Z:::  {np.array2string(Z[0])}\n\n")
     except TypeError:
+        error_occurred = True
         print("Cannot calculate roots.")
 
     condition_rotate = True
 
     fig = plt.Figure()
-    try:
+
+    if error_occurred == False:
         if graph_type == "Surface":
             ax = fig.add_subplot(projection='3d')
             surf = ax.plot_surface(X, Y, Z, cmap=cs)
@@ -371,83 +373,57 @@ def display_3d_graph(exp, x_r_f=25, x_r_t=25, y_r_f=25, y_r_t=25, res=0.25, cs="
             # ax.zaxis.set_pane_color((0, 0, 0, 0))
 
             # fig.colorbar(surf, shrink=0.5, aspect=10)
-    except AttributeError:
-        error_occurred = True
 
-        print("UNEXPECTED222")
-
-    if graph_type == "Contour":
-        try:
-            ax = fig.add_subplot(projection='3d')
-            try:
+        if graph_type == "Contour":
+                ax = fig.add_subplot(projection='3d')
                 surf = ax.contour3D(X, Y, Z, cmap=cs)
-            except TypeError:
-                print("NIGGa")
-                error_occurred = True
-        except AttributeError:
-            error_occurred = True
-            print("UNEXPECTED222")
 
-    elif graph_type == "Filled Contour":
-        try:
-            ax = fig.add_subplot(projection='3d')
-            surf = ax.contourf(X, Y, Z, cmap=cs)
-        except AttributeError:
-            error_occurred = True
-            print("UNEXPECTED222")
+        elif graph_type == "Filled Contour":
+                ax = fig.add_subplot(projection='3d')
+                surf = ax.contourf(X, Y, Z, cmap=cs)
 
-    elif graph_type == "Wireframe":
-        try:
-            ax = fig.add_subplot(projection='3d')
-            surf = ax.plot_wireframe(X, Y, Z, cmap=cs)
-        except AttributeError:
-            error_occurred = True
-            print("UNEXPECTED222")
+        elif graph_type == "Wireframe":
+                ax = fig.add_subplot(projection='3d')
+                surf = ax.plot_wireframe(X, Y, Z, cmap=cs)
 
-    elif graph_type == "Scatter":
-        try:
-            ax = fig.add_subplot(projection='3d')
-            surf = ax.scatter(X, Y, Z)
-        except AttributeError:
-            error_occurred = True
-            print("UNEXPECTED222")
 
-    elif graph_type == "All":
-        try:
-            ax1 = fig.add_subplot(2, 2, 1, projection='3d')
-            surf1 = ax1.plot_surface(X, Y, Z, cmap=cs)
-            ax1.set_title('Surface Plot')
-            ax1.set_position([0, 0.5, 0.4, 0.4])
-            ax1.set_xlabel("X axis")
-            ax1.set_ylabel("Y axis")
-            ax1.set_zlabel("Z axis")
+        elif graph_type == "Scatter":
+                ax = fig.add_subplot(projection='3d')
+                surf = ax.scatter(X, Y, Z)
 
-            ax2 = fig.add_subplot(2, 2, 2, projection='3d')
-            surf2 = ax2.scatter(X, Y, Z)
-            ax2.set_title('Scatter Plot')
-            ax2.set_position([0.5, 0.5, 0.4, 0.4])
-            ax2.set_xlabel("X ")
-            ax2.set_ylabel("Y ")
-            ax2.set_zlabel("Z ")
+        elif graph_type == "All":
+                ax1 = fig.add_subplot(2, 2, 1, projection='3d')
+                surf1 = ax1.plot_surface(X, Y, Z, cmap=cs)
+                ax1.set_title('Surface Plot')
+                ax1.set_position([0, 0.5, 0.4, 0.4])
+                ax1.set_xlabel("X axis")
+                ax1.set_ylabel("Y axis")
+                ax1.set_zlabel("Z axis")
 
-            ax3 = fig.add_subplot(2, 2, 3, projection='3d')
-            surf3 = ax3.contour3D(X, Y, Z, cmap=cs)
-            ax3.set_title('Contour Plot')
-            ax3.set_position([0, 0, 0.4, 0.4])
-            ax3.set_xlabel("X ")
-            ax3.set_ylabel("Y ")
-            ax3.set_zlabel("Z ")
+                ax2 = fig.add_subplot(2, 2, 2, projection='3d')
+                surf2 = ax2.scatter(X, Y, Z)
+                ax2.set_title('Scatter Plot')
+                ax2.set_position([0.5, 0.5, 0.4, 0.4])
+                ax2.set_xlabel("X ")
+                ax2.set_ylabel("Y ")
+                ax2.set_zlabel("Z ")
 
-            ax4 = fig.add_subplot(2, 2, 4, projection='3d')
-            surf4 = ax4.plot_wireframe(X, Y, Z, cmap=cs)
-            ax4.set_title('Wireframe Plot')
-            ax4.set_position([0.5, 0, 0.4, 0.4])
-            ax4.set_xlabel("X ")
-            ax4.set_ylabel("Y ")
-            ax4.set_zlabel("Z ")
-        except AttributeError:
-            error_occurred = True
-            print("UNEXPECTED222")
+                ax3 = fig.add_subplot(2, 2, 3, projection='3d')
+                surf3 = ax3.contour3D(X, Y, Z, cmap=cs)
+                ax3.set_title('Contour Plot')
+                ax3.set_position([0, 0, 0.4, 0.4])
+                ax3.set_xlabel("X ")
+                ax3.set_ylabel("Y ")
+                ax3.set_zlabel("Z ")
+
+                ax4 = fig.add_subplot(2, 2, 4, projection='3d')
+                surf4 = ax4.plot_wireframe(X, Y, Z, cmap=cs)
+                ax4.set_title('Wireframe Plot')
+                ax4.set_position([0.5, 0, 0.4, 0.4])
+                ax4.set_xlabel("X ")
+                ax4.set_ylabel("Y ")
+                ax4.set_zlabel("Z ")
+
     # ax.set_position([0.1, 0.1, 0.8, 0.8])
     try:
         ax.set_position([0, 0, 1, 1])
